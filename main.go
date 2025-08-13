@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,6 +21,23 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	db, err := initDB()
+	if err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+
+		}
+	}(db)
+
+	if err := runMigrations(db); err != nil {
+		slog.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+
 	r := mux.NewRouter()
 
 	r.Use(loggingMiddleware)
@@ -27,7 +45,9 @@ func main() {
 
 	r.HandleFunc("/health", healthHandler).Methods("GET")
 	r.HandleFunc("/api/ping", pingHandler).Methods("GET")
-	r.HandleFunc("/api/notes", notesHandler).Methods("POST")
+	r.HandleFunc("/api/notes", createNoteHandler(db)).Methods("POST")
+	r.HandleFunc("/api/notes", getNotesHandler(db)).Methods("GET")
+	r.HandleFunc("/api/notes/{id}", deleteNoteHandler(db)).Methods("DELETE")
 
 	port := os.Getenv("PORT")
 	if port == "" {

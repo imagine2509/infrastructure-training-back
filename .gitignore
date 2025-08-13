@@ -39,3 +39,5 @@ build/
 # Application binary
 infrastructure-training-back
 app
+
+.claude
