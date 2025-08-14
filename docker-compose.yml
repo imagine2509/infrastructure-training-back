@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  database:
+    build:
+      context: ./services/database
+      dockerfile: Dockerfile
+    container_name: infrastructure-db
+    environment:
+      POSTGRES_DB: infrastructure_training
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d infrastructure_training" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  app:
+    build:
+      context: ./services/app
+      dockerfile: Dockerfile
+    container_name: infrastructure-app
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_NAME: infrastructure_training
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
