@@ -1,0 +1,62 @@
+image: golang:1.25-alpine
+
+stages:
+  - lint
+  - test
+  - build
+  - docker:push
+
+lint:
+  stage: lint
+  script:
+    - make lint
+
+test:
+  stage: test
+  script:
+    - go mod download
+    - make test-race
+    - make test-coverage
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.html
+      - coverage.out
+    expire_in: 1 week
+  coverage: '/coverage: \d+\.\d+% of statements/'
+
+build:
+  stage: build
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker-compose build
+    - docker tag ${CI_PROJECT_NAME}_app $CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHORT_SHA
+    - docker tag ${CI_PROJECT_NAME}_app $CI_REGISTRY_IMAGE/app:latest
+    - docker tag ${CI_PROJECT_NAME}_database $CI_REGISTRY_IMAGE/database:$CI_COMMIT_SHORT_SHA
+    - docker tag ${CI_PROJECT_NAME}_database $CI_REGISTRY_IMAGE/database:latest
+
+docker:push:
+  stage: docker:push
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker push $CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/app:latest
+    - docker push $CI_REGISTRY_IMAGE/database:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/database:latest
+  only:
+    - main
+    - develop
+  environment: production

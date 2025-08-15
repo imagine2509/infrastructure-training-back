@@ -18,7 +18,23 @@ clean:
 
 # Запуск тестов
 test:
-	go test ./...
+	cd services/app && go test ./...
+
+# Запуск тестов с покрытием
+test-coverage:
+	cd services/app && go test -coverprofile=coverage.out ./...
+	cd services/app && go tool cover -html=coverage.out -o coverage.html
+
+# Запуск тестов с race detection
+test-race:
+	cd services/app && go test -race ./...
+
+# Запуск тестов с verbose output
+test-verbose:
+	go test -v ./...
+
+# Полный набор тестов
+test-full: test-race test-coverage
 
 # Проверка форматирования и линтинг
 lint:
